@@ -43,13 +43,26 @@ class Branch(banks_pb2_grpc.RPCServicer):
         # Deposit logic
         elif request.interface == "deposit":
             self.balance += request.money
+
+            # create a propogate request to send to the other branches
+            for stub in self.stubList:
+                propogate_request = banks_pb2.Request(interface="propogate_deposit", id=self.id, money=request.money)
+                stub.MsgDelivery(propogate_request)
+
             return banks_pb2.Response(interface="deposit", result="success")
 
         # Withdraw logic
         elif request.interface == "withdraw":
             if self.balance >= request.money:
                 self.balance -= request.money
+
+                # create a propogate request to send to the other branches
+                for stub in self.stubList:
+                    propogate_request = banks_pb2.Request(interface="propogate_withdraw", id=self.id, money=request.money)
+                    stub.MsgDelivery(propogate_request)
+
                 return banks_pb2.Response(interface="withdraw", result="success")
+
             else:
                 return banks_pb2.Response(interface="withdraw", result="fail")
 
