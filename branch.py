@@ -17,23 +17,19 @@ class Branch(banks_pb2_grpc.RPCServicer):
         self.recvMsg = list()
 
         # iterate the processID of the branches
+        # store the processID of the branches
         for branch_id in self.branches:
             if branch_id != self.id:
 
                 #identify the port number of the branch based on its processID
-                port = 5000 + branch_id
+                port = 10000 + branch_id
                 channel = grpc.insecure_channel(f'localhost:{port}')
 
                 # create a stub for the branch and add it to the stubList
                 stub = banks_pb2_grpc.RPCStub(channel)
                 self.stubList.append(stub)
-
-        print("Number of stubs created: ", len(self.stubList))
-
-        # TODO: students are expected to store the processID of the branches
-        pass
-
-    # TODO: students are expected to process requests from both Client and Branch
+        
+    # process requests from both Client and Branch
     def MsgDelivery(self,request, context):
 
         # Query logic
@@ -75,8 +71,3 @@ class Branch(banks_pb2_grpc.RPCServicer):
         elif request.interface == "propogate_withdraw":
             self.balance -= request.money
             return banks_pb2.Response(interface="propogate_withdraw", result="success")
-
-
-if __name__ == "__main__":
-    branch = Branch(id=2, balance=1000, branches=[1, 2, 3])
-            

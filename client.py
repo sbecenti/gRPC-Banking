@@ -1,34 +1,59 @@
-import grpc
-import banks_pb2
-import banks_pb2_grpc
+import json
+from customer import Customer
+import sys
+from multiprocessing import Process, Queue
 
-def main():
+def start_customers(filename):
+    with open(filename, "r") as file:
+        data = json.load(file)
+    
+    customers = [item for item in data if item["type"] == "customer"]
 
-    port = 5001
-    channel = grpc.insecure_channel(f'localhost:{port}')
-    stub = banks_pb2_grpc.RPCStub(channel)
+    results = []
+    result_queue = Queue()
 
-    request = banks_pb2.Request(interface="query", id=1)
-    response = stub.MsgDelivery(request)
-    print(f"Branch {1} has balance: {response.balance}")
+    print(f"Executing {len(customers)} customer processes...")
+    for customer in customers:
+        # create a separate process for each customer
+        p = Process(target=run_customer, args=(customer, result_queue))
+        p.start()
 
-    request = banks_pb2.Request(interface="deposit", id=1, money=100)
-    response = stub.MsgDelivery(request)
-    print(f"Branch {1} deposited $100, result: {response.result}")
+        # get customer results from queue
+        results.append(result_queue.get())
 
-    request = banks_pb2.Request(interface="withdraw", id=2, money=50)
-    response = stub.MsgDelivery(request)
-    print(f"Branch {2} withdrew $50, result: {response.result}")
+        p.join()
 
-    for branch_id in [1, 25, 40, 50]:
+        # make sure the process has terminated properly
+        if p.is_alive():
+            p.terminate()
+            p.join()
+            raise Exception(f"Customer {customer['id']} process did not terminate properly.")
 
-        port = 5000 + branch_id
-        channel = grpc.insecure_channel(f'localhost:{port}')
-        stub = banks_pb2_grpc.RPCStub(channel)
+        if p.exitcode != 0:
+            raise Exception(f"Customer {customer['id']} process exited with code {p.exitcode}.")
 
-        request = banks_pb2.Request(interface="query", id=branch_id)
-        response = stub.MsgDelivery(request)
-        print(f"Branch {branch_id} has balance: {response.balance}")
+    print(f"Completed {len(customers)} customer processes.")
+
+    # write the results to output.json
+    with open("output.json", "w") as file:
+        json.dump(results, file, indent=4)
+    print("Results written to output.json")
+
+    # signal to server that all customers have completed their operations
+    with open("banking_complete.flag", "w") as file:
+        file.write("Banking operations completed.")
+
+# run a customer process
+def run_customer(customer_data, result_queue):
+    c = Customer(customer_data["id"], customer_data["events"])
+    c.createStub()
+    c.executeEvents()
+
+    # append message to results
+    result_queue.put({
+        "id": c.id,
+        "recv": c.recvMsg
+    })
 
 if __name__ == "__main__":
-    main()
+    start_customers(sys.argv[1])
