@@ -3,6 +3,9 @@ from customer import Customer
 import sys
 from multiprocessing import Process, Queue
 
+# Function to start multiple customer processes based on the JSON file
+# Args:
+#     filename (str): The path to the JSON file containing customer data.
 def start_customers(filename):
     with open(filename, "r") as file:
         data = json.load(file)
@@ -43,7 +46,10 @@ def start_customers(filename):
     with open("banking_complete.flag", "w") as file:
         file.write("Banking operations completed.")
 
-# run a customer process
+# Function to run a single customer process
+# Args:
+#     customer_data (dict): The data of the customer.
+#     result_queue (Queue): The queue to store the results of the customer process.
 def run_customer(customer_data, result_queue):
     c = Customer(customer_data["id"], customer_data["events"])
     c.createStub()

@@ -30,6 +30,11 @@ class Branch(banks_pb2_grpc.RPCServicer):
                 self.stubList.append(stub)
         
     # process requests from both Client and Branch
+    # Args:
+    #     request (banks_pb2.Request): The incoming request from the client or another branch.
+    #     context (grpc.ServicerContext): The gRPC context.
+    # Returns:
+    #     banks_pb2.Response: The response to the incoming request.
     def MsgDelivery(self,request, context):
 
         # Query logic

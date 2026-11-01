@@ -8,6 +8,11 @@ import sys
 import os
 import time
 
+# Function to serve a single branch as a gRPC server
+# Args:
+#     branch_id (int): The ID of the branch.
+#     balance (float): The initial balance of the branch.
+#     branches (list): A list of all branch IDs in the system.
 def serve(branch_id, balance, branches):
     # create a gRPC server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -26,6 +31,9 @@ def serve(branch_id, balance, branches):
     server.start()
     server.wait_for_termination()
 
+# Function to start multiple branch processes based on the JSON file
+# Args:
+#     filename (str): The path to the JSON file containing branch data.
 def start_branches(filename):
 
     # read the branch data from the JSON file
