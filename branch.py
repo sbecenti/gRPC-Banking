@@ -16,6 +16,9 @@ class Branch(banks_pb2_grpc.RPCServicer):
         # a list of received messages used for debugging purpose
         self.recvMsg = list()
 
+        #initialize the branch logical clock
+        self.logical_clock = 0
+
         # iterate the processID of the branches
         # store the processID of the branches
         for branch_id in self.branches:
@@ -76,3 +79,13 @@ class Branch(banks_pb2_grpc.RPCServicer):
         elif request.interface == "propogate_withdraw":
             self.balance -= request.money
             return banks_pb2.Response(interface="propogate_withdraw", result="success")
+
+    # increment the branch logical clock
+    def increment_clock(self):
+        self.logical_clock += 1
+        return self.logical_clock
+
+    # update the branch logical clock based on the received clock
+    def update_clock(self, received_clock):
+        self.logical_clock = max(self.logical_clock, received_clock) + 1
+        return self.logical_clock

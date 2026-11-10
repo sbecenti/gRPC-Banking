@@ -14,6 +14,9 @@ class Customer:
         # pointer for the stub
         self.stub = None
 
+        #initialize the customer logical clock
+        self.logical_clock = 0
+
     # create the Customer stub
     def createStub(self):
         # create port number based on the customer ID
@@ -31,6 +34,9 @@ class Customer:
         for event in self.events:
             operation = event["interface"]
             event_id = event["id"]
+
+            # increment the customer logical clock
+            self.increment_clock()
 
             # request to send to bank
             if operation == "query":
@@ -65,3 +71,13 @@ class Customer:
                         "interface": "withdraw",
                         "result": response.result
                     })
+
+    # increment the customer logical clock
+    def increment_clock(self):
+        self.logical_clock += 1
+        return self.logical_clock
+
+    # update the customer logical clock based on the received clock
+    def update_clock(self, received_clock):
+        self.logical_clock = max(self.logical_clock, received_clock) + 1
+        return self.logical_clock

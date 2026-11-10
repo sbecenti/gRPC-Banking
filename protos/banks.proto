@@ -10,6 +10,10 @@ message Request {
     string interface = 1;
     int32 money = 2;
     int32 id = 3;
+
+    int32 logical_clock = 4;
+    int32 customer_request_id = 5;
+    int32 sender_id = 6;
 }
 
 message Response {
