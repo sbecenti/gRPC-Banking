@@ -16,6 +16,8 @@ class Customer:
 
         #initialize the customer logical clock
         self.logical_clock = 0
+        # a log of events
+        self.event_log = []
 
     # create the Customer stub
     def createStub(self):
@@ -38,6 +40,9 @@ class Customer:
             # increment the customer logical clock
             self.increment_clock()
 
+            # log the customer event
+            self.log_event(event_id, operation)
+
             # request to send to bank
             if operation == "query":
                 request = banks_pb2.Request(interface="query", id=event_id)
@@ -51,7 +56,13 @@ class Customer:
             # customer makes a deposit
             elif operation == "deposit":
                 money = event["money"]
-                request = banks_pb2.Request(interface="deposit", id=event_id, money=money)
+                request = banks_pb2.Request(
+                    interface="deposit", 
+                    id=event_id, money=money, 
+                    logical_clock=self.logical_clock, 
+                    customer_request_id=event_id, 
+                    sender_id=self.id
+                )
                 response = self.stub.MsgDelivery(request)
 
                 if response.result == "success":
@@ -63,7 +74,13 @@ class Customer:
             # customer makes a withdrawal
             elif operation == "withdraw":
                 money = event["money"]
-                request = banks_pb2.Request(interface="withdraw", id=event_id, money=money)
+                request = banks_pb2.Request(
+                    interface="withdraw", 
+                    id=event_id, money=money, 
+                    logical_clock=self.logical_clock, 
+                    customer_request_id=event_id, 
+                    sender_id=self.id
+                )
                 response = self.stub.MsgDelivery(request)
 
                 if response.result == "success":
@@ -81,3 +98,12 @@ class Customer:
     def update_clock(self, received_clock):
         self.logical_clock = max(self.logical_clock, received_clock) + 1
         return self.logical_clock
+
+    # log customer event
+    def log_event(self, request_id, operation):
+        self.event_log.append({
+            "customer-request-id": request_id,
+            "logical_clock": self.logical_clock,
+            "interface": operation,
+            "comment": f"event_sent from customer {self.id}"
+        })
