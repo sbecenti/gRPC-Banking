@@ -32,6 +32,10 @@ class Customer:
 
 
     # send out the events to the Bank
+    # Args:
+    #     None
+    # Returns:
+    #     None
     def executeEvents(self):
         for event in self.events:
             operation = event["interface"]
@@ -43,9 +47,17 @@ class Customer:
             # log the customer event
             self.log_event(event_id, operation)
 
+            # ================================
             # request to send to bank
+            # ================================
             if operation == "query":
-                request = banks_pb2.Request(interface="query", id=event_id)
+                request = banks_pb2.Request(
+                    interface="query", 
+                    id=event_id,
+                    logical_clock=self.logical_clock,
+                    customer_request_id=event_id,
+                    sender_id=self.id
+                )
                 response = self.stub.MsgDelivery(request)
 
                 self.recvMsg.append({
@@ -53,7 +65,9 @@ class Customer:
                     "balance": response.balance
                 })
 
+            # ================================
             # customer makes a deposit
+            # ================================
             elif operation == "deposit":
                 money = event["money"]
                 request = banks_pb2.Request(
@@ -71,7 +85,9 @@ class Customer:
                         "result": response.result
                     })
 
+            # ================================
             # customer makes a withdrawal
+            # ================================
             elif operation == "withdraw":
                 money = event["money"]
                 request = banks_pb2.Request(
@@ -90,16 +106,29 @@ class Customer:
                     })
 
     # increment the customer logical clock
+    # Args:
+    #     None
+    # Returns:
+    #     int: The updated logical clock.
     def increment_clock(self):
         self.logical_clock += 1
         return self.logical_clock
 
     # update the customer logical clock based on the received clock
+    # Args:
+    #     received_clock (int): The received logical clock.
+    # Returns:
+    #     int: The updated logical clock.
     def update_clock(self, received_clock):
         self.logical_clock = max(self.logical_clock, received_clock) + 1
         return self.logical_clock
 
     # log customer event
+    # Args:
+    #     request_id (int): The customer request ID.
+    #     operation (str): The operation performed.
+    # Returns:
+    #     None
     def log_event(self, request_id, operation):
         self.event_log.append({
             "customer-request-id": request_id,

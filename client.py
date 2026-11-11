@@ -2,6 +2,10 @@ import json
 from customer import Customer
 import sys
 from multiprocessing import Process, Queue
+from collections import defaultdict
+import grpc
+import banks_pb2
+import banks_pb2_grpc
 
 # Function to start multiple customer processes based on the JSON file
 # Args:
@@ -11,7 +15,8 @@ def start_customers(filename):
         data = json.load(file)
     
     customers = [item for item in data if item["type"] == "customer"]
-
+    branches = [item for item in data if item["type"] == "branch"]
+    
     results = []
     result_queue = Queue()
 
@@ -37,6 +42,36 @@ def start_customers(filename):
 
     print(f"Completed {len(customers)} customer processes.")
 
+    # add branch event results
+    for branch in branches:
+        branch_result = get_branch_events(branch["id"])
+        results.append(branch_result)
+
+    # group events by customer request ID
+    events_by_request = defaultdict(list)
+    for process in results:
+        for event in process["events"]:
+            request_id = event["customer-request-id"]
+            events_by_request[request_id].append({
+                "id": process["id"],
+                "customer-request-id": request_id,
+                "type": process["type"],
+                "logical_clock": event["logical_clock"],
+                "interface": event["interface"],
+                "comment": event["comment"]
+            })
+
+    # sort and append grouped events
+    for request_id in sorted(events_by_request):
+        request_events = events_by_request[request_id]
+        
+        # order by time
+        request_events.sort(key=lambda event: event["logical_clock"])
+
+        #add to output
+        results.extend(request_events)
+        
+
     # write the results to output.json
     with open("output.json", "w") as file:
         json.dump(results, file, indent=4)
@@ -58,8 +93,38 @@ def run_customer(customer_data, result_queue):
     # append message to results
     result_queue.put({
         "id": c.id,
-        "recv": c.recvMsg
+        "type": "customer",
+        "events": c.event_log
     })
+
+# Function to get branch events
+# Args:
+#     branch_id (int): The ID of the branch.
+# Returns:
+#     list: The list of events for the branch.
+def get_branch_events(branch_id):
+    # connect
+    port = 10000 + branch_id
+
+    with grpc.insecure_channel(f"localhost:{port}") as channel:
+        stub = banks_pb2_grpc.RPCStub(channel)
+
+        # request event history
+        request = banks_pb2.Request(interface="get_events")
+        response = stub.MsgDelivery(request)
+
+        # print(f"Branch {branch_id} response: {response}")
+        # print(f"Events JSON: {repr(response.events_json)}")
+
+        # turn to python list
+        events = json.loads(response.events_json)
+
+        return {
+            "id": branch_id,
+            "type": "branch",
+            "events": events
+        }
+    
 
 if __name__ == "__main__":
     start_customers(sys.argv[1])

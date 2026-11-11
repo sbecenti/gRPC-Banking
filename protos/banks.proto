@@ -21,4 +21,6 @@ message Response {
     string interface = 1;
     int32 balance = 2;
     string result = 3;
+
+    string events_json = 4;
 }

@@ -1,6 +1,7 @@
 import grpc
 import banks_pb2
 import banks_pb2_grpc
+import json
 
 class Branch(banks_pb2_grpc.RPCServicer):
 
@@ -42,8 +43,9 @@ class Branch(banks_pb2_grpc.RPCServicer):
     #     banks_pb2.Response: The response to the incoming request.
     def MsgDelivery(self,request, context):
 
-        # increment the branch logical clock
-        self.update_clock(request.logical_clock)
+        # increment the branch logical clock only if query or deposit
+        if request.interface != "get_events":
+            self.update_clock(request.logical_clock)
 
         # ================================
         # Query logic
@@ -141,6 +143,15 @@ class Branch(banks_pb2_grpc.RPCServicer):
 
             self.balance -= request.money
             return banks_pb2.Response(interface="propogate_withdraw", result="success")
+
+        # ================================
+        # get_events logic
+        # ================================
+        elif request.interface == "get_events":
+            return banks_pb2.Response(
+                interface="get_events",
+                events_json=json.dumps(self.event_log)
+            )
 
     # increment the branch logical clock
     # Args: 
