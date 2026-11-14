@@ -39,7 +39,7 @@ class Customer:
     def executeEvents(self):
         for event in self.events:
             operation = event["interface"]
-            event_id = event["id"]
+            event_id = event.get("customer-request-id", event.get("id"))
 
             # increment the customer logical clock
             self.increment_clock()

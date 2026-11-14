@@ -86,7 +86,10 @@ def start_customers(filename):
 #     customer_data (dict): The data of the customer.
 #     result_queue (Queue): The queue to store the results of the customer process.
 def run_customer(customer_data, result_queue):
-    c = Customer(customer_data["id"], customer_data["events"])
+    # get customer requests 
+    requests = customer_data.get("customer-requests", customer_data.get("events", []))
+    
+    c = Customer(customer_data["id"], requests)
     c.createStub()
     c.executeEvents()
 
