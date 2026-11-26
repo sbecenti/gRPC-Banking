@@ -22,7 +22,12 @@ def start_customers(filename):
         p.start()
 
         # get customer results from queue
-        results.append(result_queue.get())
+        customer_result = result_queue.get()
+        for event in customer_result["recv"]:
+            results.append({
+                "id": customer_result["id"],
+                "recv": [event]
+            })
 
         p.join()
 
