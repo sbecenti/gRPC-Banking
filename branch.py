@@ -42,25 +42,21 @@ class Branch(banks_pb2_grpc.RPCServicer):
     #     banks_pb2.Response: The response to the incoming request.
     def MsgDelivery(self,request, context):
 
-        # Query logic
-        if request.interface == "query":
-
-            # get customer write set
+        # ensure that all required writes have been applied before processing deposit or withdraw requests
+        if request.interface in ("deposit", "withdraw"):
             customer_writeset = set(request.writeset)
-
-            # wait for all writes
             deadline = time.monotonic() + 5
 
-            # deadline to ensure not waiting indefinitely
             while not customer_writeset.issubset(self.writeset):
                 if time.monotonic() >= deadline:
                     context.abort(
                         grpc.StatusCode.FAILED_PRECONDITION,
                         "Required writes have not been applied"
-                    )           
+                    )
+                time.sleep(0.1)
 
-            time.sleep(0.1)
-
+        # Query logic
+        if request.interface == "query":
             return banks_pb2.Response(interface="query", balance=self.balance)
 
         # Deposit logic

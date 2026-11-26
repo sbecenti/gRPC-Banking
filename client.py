@@ -24,10 +24,13 @@ def start_customers(filename):
         # get customer results from queue
         customer_result = result_queue.get()
         for event in customer_result["recv"]:
-            results.append({
-                "id": customer_result["id"],
-                "recv": [event]
-            })
+            results.append(event)
+
+        results.append({
+            "id": customer_result["id"],
+            "balance": customer_result["balance"]
+            
+        })
 
         p.join()
 
@@ -62,6 +65,7 @@ def run_customer(customer_data, result_queue):
     # append message to results
     result_queue.put({
         "id": c.id,
+        "balance": c.final_balance,
         "recv": c.recvMsg
     })
 
