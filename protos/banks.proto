@@ -10,6 +10,9 @@ message Request {
     string interface = 1;
     int32 money = 2;
     int32 id = 3;
+
+    repeated string writeset = 4;
+    string write_id = 5;
 }
 
 message Response {
@@ -17,4 +20,6 @@ message Response {
     string interface = 1;
     int32 balance = 2;
     string result = 3;
+
+    string write_id = 4;
 }

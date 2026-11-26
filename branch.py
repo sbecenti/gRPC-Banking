@@ -1,6 +1,7 @@
 import grpc
 import banks_pb2
 import banks_pb2_grpc
+import time
 
 class Branch(banks_pb2_grpc.RPCServicer):
 
@@ -15,6 +16,10 @@ class Branch(banks_pb2_grpc.RPCServicer):
         self.stubList = list()
         # a list of received messages used for debugging purpose
         self.recvMsg = list()
+        # set of write operation IDs
+        self.writeset = set()
+        # counter to generate write IDs
+        self.write_counter = 0
 
         # iterate the processID of the branches
         # store the processID of the branches
@@ -39,40 +44,86 @@ class Branch(banks_pb2_grpc.RPCServicer):
 
         # Query logic
         if request.interface == "query":
+
+            # get customer write set
+            customer_writeset = set(request.writeset)
+
+            # wait for all writes
+            deadline = time.monotonic() + 5
+
+            # deadline to ensure not waiting indefinitely
+            while not customer_writeset.issubset(self.writeset):
+                if time.monotonic() >= deadline:
+                    context.abort(
+                        grpc.StatusCode.FAILED_PRECONDITION,
+                        "Required writes have not been applied"
+                    )           
+
+            time.sleep(0.1)
+
             return banks_pb2.Response(interface="query", balance=self.balance)
 
         # Deposit logic
         elif request.interface == "deposit":
+
+            # generate a write ID
+            write_id = self.generateWriteId()
+
+            # apply deposit and update writeset
             self.balance += request.money
+            self.writeset.add(write_id)  
 
             # create a propogate request to send to the other branches
             for stub in self.stubList:
-                propogate_request = banks_pb2.Request(interface="propogate_deposit", id=self.id, money=request.money)
+                propogate_request = banks_pb2.Request(interface="propogate_deposit", id=self.id, money=request.money, write_id=write_id)
                 stub.MsgDelivery(propogate_request)
 
-            return banks_pb2.Response(interface="deposit", result="success")
+            return banks_pb2.Response(interface="deposit", result="success", write_id=write_id)
 
         # Withdraw logic
         elif request.interface == "withdraw":
             if self.balance >= request.money:
+
+                # generate write ID
+                write_id = self.generateWriteId()
+
+                # apply withdrawal and update writeset
                 self.balance -= request.money
+                self.writeset.add(write_id)              
 
                 # create a propogate request to send to the other branches
                 for stub in self.stubList:
-                    propogate_request = banks_pb2.Request(interface="propogate_withdraw", id=self.id, money=request.money)
+                    propogate_request = banks_pb2.Request(interface="propogate_withdraw", id=self.id, money=request.money, write_id=write_id)
                     stub.MsgDelivery(propogate_request)
 
-                return banks_pb2.Response(interface="withdraw", result="success")
+                return banks_pb2.Response(interface="withdraw", result="success", write_id=write_id)
 
             else:
-                return banks_pb2.Response(interface="withdraw", result="fail")
+                return banks_pb2.Response(interface="withdraw", result="fail", write_id="")
 
         # propogate_deposit logic
         elif request.interface == "propogate_deposit":
-            self.balance += request.money
-            return banks_pb2.Response(interface="propogate_deposit", result="success")
+
+            # only write to unprocessed write IDs
+            if request.write_id not in self.writeset:
+                self.balance += request.money
+                self.writeset.add(request.write_id)            
+
+            return banks_pb2.Response(interface="propogate_deposit", result="success", write_id=request.write_id)
 
         # propogate_withdraw logic
         elif request.interface == "propogate_withdraw":
-            self.balance -= request.money
-            return banks_pb2.Response(interface="propogate_withdraw", result="success")
+            
+            # only write to unprocessed write IDs
+            if request.write_id not in self.writeset:
+                self.balance -= request.money
+                self.writeset.add(request.write_id)         
+
+            return banks_pb2.Response(interface="propogate_withdraw", result="success", write_id=request.write_id)
+
+    # generate ID for a write operation
+    # Returns:
+    #     str: The generated write operation ID.
+    def generateWriteId(self):
+        self.write_counter += 1
+        return f"{self.id}-{self.write_counter}"

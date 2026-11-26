@@ -52,7 +52,6 @@ def start_customers(filename):
 #     result_queue (Queue): The queue to store the results of the customer process.
 def run_customer(customer_data, result_queue):
     c = Customer(customer_data["id"], customer_data["events"])
-    c.createStub()
     c.executeEvents()
 
     # append message to results
